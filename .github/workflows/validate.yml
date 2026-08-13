@@ -1,0 +1,49 @@
+name: Config validation
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  jinja2-lint:
+    name: Jinja2 template lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install jinja2
+        run: python -m pip install jinja2
+
+      - name: Lint macro templates
+        run: python tests/lint_jinja.py
+
+  klippy-config-check:
+    name: Klippy config check (${{ matrix.fan }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        fan: [standard, tachometer]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Clone Klipper and install dependencies
+        run: |
+          git clone --depth 1 https://github.com/Klipper3d/klipper.git klipper
+          python -m pip install greenlet cffi jinja2 markupsafe pyserial
+
+      - name: Assemble reference config and run klippy
+        run: python tests/config_check.py ${{ matrix.fan }} klipper
