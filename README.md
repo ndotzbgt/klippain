@@ -33,6 +33,10 @@ To install Klippain, first ensure you have already Klipper, Moonraker, and a Web
 
 Then, run the installation script using the following command over SSH. This script will backup your old configuration, download this GitHub repository to your RaspberryPi home directory, and set up Klippain in `~/printer_data/config`. You will also be prompted to select and install MCU board_pins templates. This is recommended for faster `mcu.cfg` setup, but you can do it manually later if you prefer.
 
+  > **Note for users of this fork**:
+  >
+  > The command below installs **upstream** Klippain (the `Frix-x/klippain` repository). If you want to use the fork-specific additions described in [What makes this fork different](#what-makes-this-fork-different), install from this fork instead, e.g. via the `Code` button on GitHub or by cloning `git@github.com:ndotzbgt/klippain.git` into `~/printer_data/config`.
+
 ```bash
 wget -O - https://raw.githubusercontent.com/Frix-x/klippain/main/install.sh | bash
 ```
