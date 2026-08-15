@@ -44,7 +44,7 @@
 ### 🐛 Bug Fixes
 
 - Fix aux fan tach monitoring disabled before end-print run-down
-- Fix aux fan M106/M107 bridge to not require a [fan] section (no rename_existing; uses SET_FAN_SPEED with 'fan' in printer guard)
+- Fix aux fan M106/M107 bridge to not break config load when no [fan] section is defined (moved bridge to fan_bridge.cfg, included only from configs that define [fan])
 - Add `aux_fan_vent_temp > 0` guard to vent condition so room temperature no longer triggers a 2-minute delay
 - Start aux fan tach monitoring before the chamber vent in START_PRINT
 - Stop aux fan at end of `_MODULE_HEATSOAK_BED` to prevent run-away fan when chamber_soak is omitted
