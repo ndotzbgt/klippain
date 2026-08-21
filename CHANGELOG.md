@@ -2,6 +2,8 @@
 
 ### 🚀 Features
 
+- Add axis twist compensation support with a dockable probe aware calibration wizard (per-size configs, CALIBRATE_AXIS_TWIST / QUERY_AXIS_TWIST_COMPENSATION / CLEAR_AXIS_TWIST_COMPENSATION macros)
+- Add dockable probe aware SCREWS_TILT_CALCULATE wrapper with per-size screws_tilt configs
 - Add Cartographer ADXL configs
 - Allow non-temperature_sensor chamber sensors in heatsoak
 - Add Fysetc SB Combo V2 support
