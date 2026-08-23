@@ -50,6 +50,12 @@ ENABLED_INCLUDES = [
     "config/software/firmware_rectraction.cfg",
 ]
 
+# rpi_fan.cfg uses [temperature_fan] with sensor_type: temperature_host,
+# which requires /sys/class/thermal/thermal_zone0/temp.  Skip it when
+# the host thermal zone is unavailable (e.g. CI runners, Docker, VMs).
+if not os.path.exists("/sys/class/thermal/thermal_zone0/temp"):
+    ENABLED_INCLUDES = [p for p in ENABLED_INCLUDES if "rpi_fan" not in p]
+
 # Dummy main MCU + board_pins aliases covering every pin referenced by the
 # reference machine above. Pins are only validated for existence, never used.
 # Heater control is normally set in the user overrides.cfg (PID autotune), so
