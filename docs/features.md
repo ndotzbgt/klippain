@@ -25,5 +25,5 @@ Here you can find a list of all the custom features availables in the macros or 
 
 This config support out of the box a lot of different machine hardware configurations.
 
-Please see [How to write an override](./overrides.md#how-to-write-an-override) in docs/overrides.md for more information on customizing your configuration.
+Please see [How to write an override](./overrides.md#how-to-write-an-override) in docs/overrides.md for more information on customizing your configuration. For macro behavior customization, see the [variables documentation](./variables.md).
 
