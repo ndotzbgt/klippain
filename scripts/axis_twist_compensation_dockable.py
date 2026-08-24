@@ -30,9 +30,21 @@
 # [axis_twist_compensation] section in the config so that it can take over the
 # stock command registration.
 
+import enum
+
 from . import manual_probe, probe
 
 DEFAULT_SAMPLE_COUNT = 3
+
+
+class CalibrationState(enum.Enum):
+    IDLE = 'idle'
+    ACTIVATING = 'activating'
+    AUTO_PROBING = 'auto_probing'
+    DOCKING = 'docking'
+    MANUAL_PROBING = 'manual_probing'
+    REATTACHING = 'reattaching'
+    COMPLETED = 'completed'
 
 
 class AxisTwistCompensationDockable:
@@ -55,9 +67,12 @@ class AxisTwistCompensationDockable:
         self.current_point_index = 0
         self.bed_points = []
         self.test_points = []
+        self._state = CalibrationState.IDLE
 
         self.printer.register_event_handler("klippy:connect",
                                             self._handle_connect)
+        self.printer.register_event_handler("klippy:disconnect",
+                                            self._handle_disconnect)
         self._register_gcode_handlers()
 
     def _handle_connect(self):
@@ -76,6 +91,10 @@ class AxisTwistCompensationDockable:
             self.is_dockable = probe_type in ('dockable', 'dockable_virtual')
         except Exception:
             self.is_dockable = False
+
+    def _handle_disconnect(self):
+        self._state = CalibrationState.IDLE
+        self.gcmd = None
 
     def _register_gcode_handlers(self):
         # Take over the stock command (the stock wizard is not dockable probe
@@ -97,8 +116,40 @@ class AxisTwistCompensationDockable:
     Dockable probes are docked during the manual (nozzle) measurement phase.
     """
 
+    def _cleanup(self, *, reattach_if_docked=False):
+        """Bring probe to a safe, well-defined state after error or cancel.
+
+        On error (reattach_if_docked=False):
+          - Probe active (ACTIVATING/AUTO_PROBING/REATTACHING) -> dock it
+          - Probe docked (MANUAL_PROBING) -> leave docked (safe)
+        On user cancel (reattach_if_docked=True):
+          - Probe docked (MANUAL_PROBING) -> reattach to restore normal state
+        """
+        if self._state in (CalibrationState.ACTIVATING,
+                           CalibrationState.AUTO_PROBING,
+                           CalibrationState.REATTACHING):
+            self._safe_run_script("DEACTIVATE_PROBE")
+        elif self._state == CalibrationState.MANUAL_PROBING and reattach_if_docked:
+            self._safe_run_script("ACTIVATE_PROBE")
+        self._state = CalibrationState.IDLE
+
+    def _safe_run_script(self, script):
+        try:
+            self.gcode.run_script_from_command(script)
+        except Exception:
+            pass
+
     def cmd_AXIS_TWIST_COMPENSATION_CALIBRATE(self, gcmd):
+        self._state = CalibrationState.IDLE
         self.gcmd = gcmd
+        try:
+            self._run_calibration(gcmd)
+        except Exception:
+            if self.is_dockable:
+                self._cleanup()
+            raise
+
+    def _run_calibration(self, gcmd):
         probe_x_offset, probe_y_offset, _ = self.probe.get_offsets(gcmd)
         sample_count = gcmd.get_int('SAMPLE_COUNT', DEFAULT_SAMPLE_COUNT)
         axis = gcmd.get('AXIS', 'X')
@@ -187,26 +238,27 @@ class AxisTwistCompensationDockable:
     def _auto_probe_phase(self):
         # Activate (attach) the probe for the automatic probing phase
         if self.is_dockable:
+            self._state = CalibrationState.ACTIVATING
             self.gcode.run_script_from_command("ACTIVATE_PROBE")
 
+        self._state = CalibrationState.AUTO_PROBING
         self.auto_z = []
         for index, test_point in enumerate(self.test_points):
             self.gcmd.respond_info(
                 "AXIS_TWIST_COMPENSATION_CALIBRATE: Probing point %d of %d"
                 % (index + 1, len(self.test_points)))
-            # horizontal_move_z to prevent the probe triggering or hitting the bed
             self._move_helper((None, None, self.horizontal_move_z))
-            # Move to the point to probe
             self._move_helper((test_point[0], test_point[1], None))
-            # Probe the point
             pos = probe.run_single_probe(self.probe, self.gcmd)
             self.auto_z.append(pos.bed_z)
 
         # Dock the probe so the nozzle is the lowest point of the toolhead for
         # the manual (paper touch) measurements.
         if self.is_dockable:
+            self._state = CalibrationState.DOCKING
             self.gcode.run_script_from_command("DEACTIVATE_PROBE")
 
+        self._state = CalibrationState.MANUAL_PROBING
         self._manual_probe_phase()
 
     def _manual_probe_phase(self):
@@ -227,22 +279,28 @@ class AxisTwistCompensationDockable:
                                        self._manual_probe_callback)
 
     def _manual_probe_callback(self, mpresult):
-        if mpresult is None:
-            # Probe was cancelled
-            self.gcmd.respond_info(
-                "AXIS_TWIST_COMPENSATION_CALIBRATE: Probe cancelled, "
-                "calibration aborted")
-            if self.is_dockable:
-                self.gcode.run_script_from_command("ACTIVATE_PROBE")
-            return
-        self.manual_z.append(mpresult.bed_z)
-        if self.current_point_index == len(self.bed_points) - 1:
-            # End of calibration
-            self._finalize_calibration()
-        else:
-            # Move to the next point
-            self.current_point_index += 1
-            self._manual_probe_phase()
+        try:
+            if mpresult is None:
+                # Probe was cancelled
+                self.gcmd.respond_info(
+                    "AXIS_TWIST_COMPENSATION_CALIBRATE: Probe cancelled, "
+                    "calibration aborted")
+                if self.is_dockable:
+                    self._cleanup(reattach_if_docked=True)
+                else:
+                    self._state = CalibrationState.IDLE
+                return
+            self.manual_z.append(mpresult.bed_z)
+            if self.current_point_index == len(self.bed_points) - 1:
+                # End of calibration
+                self._finalize_calibration()
+            else:
+                # Move to the next point
+                self.current_point_index += 1
+                self._manual_probe_phase()
+        except Exception:
+            self._cleanup()
+            raise
 
     def _finalize_calibration(self):
         # Finalize the calibration process
@@ -285,8 +343,10 @@ class AxisTwistCompensationDockable:
 
         # Re-attach the probe before finishing
         if self.is_dockable:
+            self._state = CalibrationState.REATTACHING
             self.gcode.run_script_from_command("ACTIVATE_PROBE")
 
+        self._state = CalibrationState.COMPLETED
         self.gcmd.respond_info(
             "AXIS_TWIST_COMPENSATION state has been saved for the current "
             "session.  The SAVE_CONFIG command will update the printer config "
