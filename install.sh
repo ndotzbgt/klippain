@@ -155,6 +155,8 @@ function install_config {
 
     # Symlink the gcode_shell_command.py file in the correct Klipper folder (erased to always get the last version)
     ln -fsn ${FRIX_CONFIG_PATH}/scripts/gcode_shell_command.py ${KLIPPER_PATH}/klippy/extras
+    # Symlink the axis twist compensation dockable probe plugin in the correct Klipper folder
+    ln -fsn ${FRIX_CONFIG_PATH}/scripts/axis_twist_compensation_dockable.py ${KLIPPER_PATH}/klippy/extras
 
     # Create or update the config version tracking file in the user config directory
     git -C ${FRIX_CONFIG_PATH} rev-parse HEAD > ${USER_CONFIG_PATH}/.VERSION
