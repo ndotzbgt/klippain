@@ -147,6 +147,118 @@ If you included a `screws_tilt_*mm.cfg` file, the `SCREWS_TILT_CALCULATE` comman
 No extra configuration is needed -- just use `SCREWS_TILT_CALCULATE` as usual.
 
 
+## Manual paper-touch phase
+
+After the probe automatically measures each point, the wizard enters the manual phase. This is the most critical part of the calibration.
+
+### Why manual measurement?
+
+The probe measures the bed surface relative to its own nozzle position. However, due to gantry twist, the probe's Z reading may differ from the actual nozzle height at that same XY location. The manual phase measures the nozzle's true contact point, and the difference between the two measurements reveals the axis twist bias.
+
+### Step-by-step process
+
+For each measurement point:
+
+1. **The nozzle moves to the point** at a safe Z height above the bed.
+2. **You are prompted to place paper** on the bed under the nozzle.
+3. **Jog the nozzle down** using the baby-stepping controls (typically `G1 Z-0.01` increments) until the paper just begins to drag.
+4. **Send `ACCEPT`** to confirm the current Z height.
+5. **Move to the next point** when prompted.
+
+### Tips for accurate measurement
+
+- **Use standard paper** (0.1mm thickness). Thin paper gives more sensitivity; thick paper is more forgiving.
+- **Clean the nozzle** before starting. Oozed filament on the nozzle tip changes the effective contact point.
+- **Move the paper constantly** during jogging. The paper should resist slightly but still move — stop when it first feels "grabby."
+- **Don't rush.** Take your time at each point. The accuracy of the entire calibration depends on this phase.
+- **Recheck if uncertain.** If you accidentally jog too far, you can jog back up and retry the point.
+
+### What the wizard computes
+
+After both automatic and manual measurements are complete for all points, the wizard calculates:
+
+```
+compensation[i] = manual_z[i] - probe_z[i]
+```
+
+These values represent how much the probe over- or under-reads at each location due to gantry twist. The values are normalized (independent of probe `z_offset`) and stored as `z_compensations` (for X axis) or `zy_compensations` (for Y axis).
+
+
+## Troubleshooting
+
+### Wizard refuses to start
+
+- **"No probe available" error**: Ensure a probe is configured (dockable or fixed). The axis twist compensation requires a probe for the automatic measurement phase.
+- **Probe fails to attach/dock**: Check that `variable_probe_dock_location_xy` and related probe variables in `variables.cfg` are correctly set.
+
+### Manual phase feels inaccurate
+
+- **Paper too thick/thin**: Try different paper types. Some users prefer receipt paper (thinner) or card stock (thicker).
+- **Nozzle dirty**: Clean the nozzle with a brass brush or cold pull before calibration.
+- **Inconsistent drag**: Ensure the bed is level (run `SCREWS_TILT_CALCULATE` or `Z_TILT_ADJUST` first).
+
+### Compensation values seem wrong
+
+- **All values near zero**: This usually means the probe is working correctly and there's minimal twist — which is good! Not every machine needs significant compensation.
+- **Values very large (>0.5mm)**: Check that the probe X/Y offsets are correct. Incorrect offsets skew the automatic measurements.
+- **Inconsistent between runs**: Make sure the bed and toolhead are at printing temperature, as thermal expansion affects measurements.
+
+### First layer still uneven after calibration
+
+- **Run `BED_MESH_CALIBRATE` again**: The mesh needs to be regenerated with the new compensation active.
+- **Check probe offsets**: Probe X/Y offsets in `printer.cfg` must be accurate for the compensation to work.
+- **Mechanical issue**: If twist is severe, the compensation may not fully correct it. Consider mechanically adjusting the gantry first.
+
+
+## Compensation interpolation and application
+
+### How compensation values are applied
+
+The axis twist compensation module hooks into Klipper's probe system via the `probe:update_results` hook. Every time any command triggers a probe measurement (bed mesh, screws tilt, Z tilt, etc.), the compensation is applied to the raw probe Z values before they are used.
+
+The compensation is linearly interpolated between calibration points:
+
+```
+For a probe at position (x, y):
+  - Compute the fractional position between calibration points
+  - Linearly interpolate between the two nearest compensation values
+  - Add the interpolated offset to the probe's Z reading
+```
+
+### Extrapolation beyond calibrated range
+
+The compensation extrapolates linearly beyond the first and last calibration points. This means:
+
+- **Keep calibration points near the edges** of your probing area (the defaults are designed for this).
+- **Don't probe outside the calibrated range** unless you accept the extrapolated values.
+- If your bed mesh covers a larger area than the calibration range, consider increasing `SAMPLE_COUNT` to extend the range.
+
+### Visual example
+
+```
+X axis calibration (3 points):
+
+  Probe readings:    0.00    0.15    0.30
+  Manual readings:   0.10    0.20    0.35
+  Compensation:      0.10    0.05    0.05
+
+  Applied during probing:
+  ┌─────────────────────────────────────────┐
+  │ Bed mesh probe at X=100 (between pt1    │
+  │ and pt2):                              │
+  │   raw_z = -0.500                       │
+  │   interpolated_comp = 0.075            │
+  │   corrected_z = -0.500 + 0.075 = -0.425│
+  └─────────────────────────────────────────┘
+```
+
+### Interaction with other compensations
+
+- **Probe `z_offset`**: The compensation values are independent of `z_offset`. You can adjust `z_offset` after calibration without invalidating the twist compensation.
+- **Bed mesh**: The bed mesh is corrected by the compensation. A more accurate mesh results from correct twist compensation.
+- **Z tilt / QGL**: These are also corrected. The compensation ensures the gantry leveling is based on accurate Z readings.
+
+
 ## When to re-run calibration
 
 Re-run `CALIBRATE_AXIS_TWIST` after:
