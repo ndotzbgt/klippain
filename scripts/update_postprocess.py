@@ -53,7 +53,7 @@ def run_variable_sync(repo_path, user_config_path):
             "",
         ]
         for name in added:
-            lines.append(f"  variable_{name}")
+            lines.append(f"  {name}")
         lines.append("")
         lines.append("Your existing values were preserved.")
         lines.append("Review variables.cfg to check defaults and adjust as needed.")
