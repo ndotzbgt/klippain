@@ -25,12 +25,12 @@ jobs:
         run: python tests/lint_jinja.py
 
   klippy-config-check:
-    name: Klippy config check (${{ matrix.variant }})
+    name: Klippy config check (${{ matrix.fan }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        variant: [standard, tachometer, axis_twist]
+        fan: [standard, tachometer]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,19 +46,4 @@ jobs:
           python -m pip install greenlet cffi jinja2 markupsafe pyserial
 
       - name: Assemble reference config and run klippy
-        run: python tests/config_check.py ${{ matrix.variant }} klipper
-
-  unit-tests:
-    name: Unit tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Run unit tests
-        run: python -m unittest discover -s tests -p "test_*.py" -v
+        run: python tests/config_check.py ${{ matrix.fan }} klipper

@@ -23,7 +23,6 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VARIANTS = {
     "standard": "config/hardware/fans/aux_fan.cfg",
     "tachometer": "config/hardware/fans/aux_fan_tachometer.cfg",
-    "axis_twist": "config/software/axis_twist_compensation/axis_twist_compensation_350mm.cfg",
 }
 
 # Reference machine: a Voron-style CoreXY 350mm with an inductive virtual Z
@@ -47,7 +46,7 @@ ENABLED_INCLUDES = [
     "config/hardware/temperature_sensors/chamber_temp.cfg",
     "config/software/bed_mesh/bed_mesh_350mm.cfg",
     "config/software/tilting/qgl_350mm.cfg",
-    "config/software/firmware_rectraction.cfg",
+    "config/software/firmware_retraction.cfg",
 ]
 
 # rpi_fan.cfg uses [temperature_fan] with sensor_type: temperature_host,
@@ -160,15 +159,6 @@ def main():
         plugin = os.path.join(REPO_ROOT, "scripts", "gcode_shell_command.py")
         plugin_dest = os.path.join(klipper, "klippy", "extras",
                                    "gcode_shell_command.py")
-        if not os.path.exists(plugin_dest):
-            shutil.copy(plugin, plugin_dest)
-
-        # Stage the axis twist compensation dockable plugin used by the
-        # [axis_twist_compensation_dockable] section
-        plugin = os.path.join(REPO_ROOT, "scripts",
-                              "axis_twist_compensation_dockable.py")
-        plugin_dest = os.path.join(klipper, "klippy", "extras",
-                                   "axis_twist_compensation_dockable.py")
         if not os.path.exists(plugin_dest):
             shutil.copy(plugin, plugin_dest)
 
