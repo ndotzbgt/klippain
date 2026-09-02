@@ -2,7 +2,7 @@
 
 ## Description
 
-A lot of different method exist to measure and calibrate the flow but none of them is really consistent: most of the time, the results are ambigous and open to interpretation and also always dependant of the slicer profile used. The main reason for this calibration macro is to get a filament and slicer agnostic way to calibrate the flow extrusion multiplier using simple measuring tools. The goal is to make it easy to set, share and use it.
+A lot of different method exist to measure and calibrate the flow but none of them is really consistent: most of the time, the results are ambiguous and open to interpretation and also always dependent on the slicer profile used. The main reason for this calibration macro is to get a filament and slicer agnostic way to calibrate the flow extrusion multiplier using simple measuring tools. The goal is to make it easy to set, share and use it.
 
 ![flow_calibration.png](./../images/flow_calibration.png)
 
@@ -52,13 +52,13 @@ Regarding the parameters availables when calling the `FLOW_MULTIPLIER_CALIBRATIO
 |PURGE_MM|1|amount of filament pushed to initiate pressure before printing the prime line (can be 0 to disable)|
 
 
-Finally, measure the shell thickness by using a caliper (or even better by using a micrometer) and call the computation macro with the measured value. Be sure to not do a klipper restart inbetween the print and the measurement or otherwise the printed shell values will be erased!
+Finally, measure the shell thickness by using a caliper (or even better by using a micrometer) and call the computation macro with the measured value. Be sure to not do a klipper restart in between the print and the measurement or otherwise the printed shell values will be erased!
 
 ```
 COMPUTE_FLOW_MULTIPLIER MEASURED_THICKNESS=xxx.xxx
 ```
 
-You will see the new computed flow value printed in the web console (in Mainsail/Fluidd/Octoprint). Use it in your prefered slicer.
+You will see the new computed flow value printed in the web console (in Mainsail/Fluidd/Octoprint). Use it in your preferred slicer.
 
 
 ## Partnerships

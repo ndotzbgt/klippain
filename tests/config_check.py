@@ -47,7 +47,7 @@ ENABLED_INCLUDES = [
     "config/hardware/temperature_sensors/chamber_temp.cfg",
     "config/software/bed_mesh/bed_mesh_350mm.cfg",
     "config/software/tilting/qgl_350mm.cfg",
-    "config/software/firmware_rectraction.cfg",
+    "config/software/firmware_retraction.cfg",
 ]
 
 # rpi_fan.cfg uses [temperature_fan] with sensor_type: temperature_host,

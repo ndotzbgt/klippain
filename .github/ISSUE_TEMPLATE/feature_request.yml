@@ -14,7 +14,7 @@ body:
     label: Describe the feature or hardware support you'd like
     description: >-
       Provide a clear and detailed description of the feature, mod, macro, or hardware you'd like to see in Klippain.
-      Also do not hesistate to explain how your suggestion can enhance Klippain and benefit its users.
+      Also do not hesitate to explain how your suggestion can enhance Klippain and benefit its users.
     placeholder: E.g., "I'd love to see support for this XXX new MCU model..."
   validations:
     required: true
