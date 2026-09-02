@@ -1,6 +1,6 @@
 # Pressure advance calibration
 
-The standard way of calibrating the PA is quite ambigous, open to interpretation with a broad margin for error, and use each time a good amount of filament. This macro provide a quick and easy way to calibrate the pressure advance where differences are easier to notice at a glance.
+The standard way of calibrating the PA is quite ambiguous, open to interpretation with a broad margin for error, and use each time a good amount of filament. This macro provide a quick and easy way to calibrate the pressure advance where differences are easier to notice at a glance.
 
 
 ## Description

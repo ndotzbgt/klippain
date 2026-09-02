@@ -52,7 +52,7 @@ If you want to install it to your own custom config, here is the way to go:
 
 > Please note that using the `[exclude_object]` tags (method 1) is a little bit less precise than using the original "SIZE" parameter (method 2) as the `[exclude_object]` tags are using the full parts sizes (not only the first layer). So if you do a part with large overhangs, it will do a large mesh using the tags but will only mesh the base of the part with the SIZE parameter. Also, if you add a skirt around the parts or use a purge tower (like MMU/ERCF users), there is no tags associated to this and the mesh can be a little bit smaller and lead to bad adhesion of these objects. So my advice is: use the [exclude_object] tags method for a new installation as it's much more easier to install. But if you are updating from an older version of the macro or use an MMU, use the SIZE parameter!
 
-  3. In klipper, if it's not already the case, add and configure a `[bed_mesh]` for your machine. This will be the base on which my macro compute the new adaptive bed mesh. Keep in mind that you can (and should) push the precision a little bit further: do not hesistate to go with a mesh of 9x9 (or even more) as with my adaptive bed mesh, not all the points will be probed for smaller parts.
+  3. In klipper, if it's not already the case, add and configure a `[bed_mesh]` for your machine. This will be the base on which my macro compute the new adaptive bed mesh. Keep in mind that you can (and should) push the precision a little bit further: do not hesitate to go with a mesh of 9x9 (or even more) as with my adaptive bed mesh, not all the points will be probed for smaller parts.
 
   4. **VERY IMPORTANT CHECKS**:
      - Check that the `BED_MESH_CALIBRATE` command is working correctly now or fix your `[bed_mesh]` section.
@@ -94,7 +94,7 @@ Regarding the parameters availables, you can use them either when calling the `A
 
 | parameters | default value | description |
 |-----------:|---------------|-------------|
-|SIZE||"xMin_yMin_xMax_yMax" of the zone you want to do the mesh. Usually this is coming automatically from the slicer but this can still be used mannually when you want to call the adaptive mesh macro by hand (not during a print)|
+|SIZE||"xMin_yMin_xMax_yMax" of the zone you want to do the mesh. Usually this is coming automatically from the slicer but this can still be used manually when you want to call the adaptive mesh macro by hand (not during a print)|
 |MARGIN|5|margin in mm to add around the first layer for the probing area|
 |FORCE_MESH|0|force a 3×3 mesh even for very small parts (when less than 3×3 points are computed)|
 
