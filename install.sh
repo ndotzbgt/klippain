@@ -3,9 +3,11 @@
 ###### AUTOMATED INSTALL AND UPDATE SCRIPT ######
 #################################################
 # Written by yomgui1 & Frix_x
-# @version: 1.3
+# @version: 1.5
 
 # CHANGELOG:
+#   v1.5: added post-update orchestrator for variable sync, module detection,
+#           and changelog digest
 #   v1.4: added Shake&Tune install call
 #   v1.3: - added a warning on first install to be sure the user wants to install klippain and fixed a bug
 #           where some artefacts of the old user config where still present after the install (harmless bug but not clean)
@@ -24,6 +26,8 @@ USER_CONFIG_PATH="${HOME}/printer_data/config"
 FRIX_CONFIG_PATH="${HOME}/klippain_config"
 # Path used to store backups when updating (backups are automatically dated when saved inside)
 BACKUP_PATH="${HOME}/klippain_config_backups"
+# Path for the previous version file (used by post-update orchestrator)
+PREVIOUS_VERSION_PATH="${HOME}/klippain_config/.previous_commit"
 # Where the Klipper folder is located (ie. the internal Klipper firmware machinery)
 KLIPPER_PATH="${HOME}/klipper"
 # Branch from Frix-x/klippain repo to use during install (default: main)
@@ -32,6 +36,19 @@ FRIX_BRANCH="main"
 
 set -eu
 export LC_ALL=C
+
+# Step 0: Save the previous commit hash before moonraker updates the repo.
+#         This must be called BEFORE the git pull that moonraker performs.
+function save_previous_version {
+    if [ -f "${FRIX_CONFIG_PATH}/.git/HEAD" ]; then
+        local previous_hash
+        previous_hash="$(git -C ${FRIX_CONFIG_PATH} rev-parse HEAD 2>/dev/null || echo '')"
+        if [ -n "${previous_hash}" ]; then
+            echo "${previous_hash}" > "${PREVIOUS_VERSION_PATH}"
+            printf "[UPDATE] Previous version saved: %s\n" "${previous_hash:0:8}"
+        fi
+    fi
+}
 
 # Step 1: Verify that the script is not run as root and Klipper is installed.
 #         Then if it's a first install, warn and ask the user if he is sure to proceed
@@ -155,9 +172,14 @@ function install_config {
 
     # Symlink the gcode_shell_command.py file in the correct Klipper folder (erased to always get the last version)
     ln -fsn ${FRIX_CONFIG_PATH}/scripts/gcode_shell_command.py ${KLIPPER_PATH}/klippy/extras
+    # Symlink the axis twist compensation dockable probe plugin in the correct Klipper folder
+    ln -fsn ${FRIX_CONFIG_PATH}/scripts/axis_twist_compensation_dockable.py ${KLIPPER_PATH}/klippy/extras
 
-    # Create or update the config version tracking file in the user config directory
-    git -C ${FRIX_CONFIG_PATH} rev-parse HEAD > ${USER_CONFIG_PATH}/.VERSION
+    # Create or update the config version tracking file with current and previous commit hashes
+    local current_hash previous_hash
+    current_hash="$(git -C ${FRIX_CONFIG_PATH} rev-parse HEAD)"
+    previous_hash="$(cat ${PREVIOUS_VERSION_PATH} 2>/dev/null || echo '')"
+    printf "COMMIT=%s\nPREVIOUS=%s\n" "${current_hash}" "${previous_hash}" > ${USER_CONFIG_PATH}/.VERSION
 }
 
 
@@ -331,6 +353,35 @@ function restart_klipper {
     sudo systemctl restart klipper
 }
 
+# Step 6: Run the post-update orchestrator after Klipper has restarted.
+#         This generates the variable sync, module detection, and changelog report.
+function run_post_update {
+    local current_hash previous_hash
+
+    # Read current and previous hashes from .VERSION
+    current_hash="$(grep '^COMMIT=' ${USER_CONFIG_PATH}/.VERSION 2>/dev/null | cut -d= -f2 || echo '')"
+    previous_hash="$(grep '^PREVIOUS=' ${USER_CONFIG_PATH}/.VERSION 2>/dev/null | cut -d= -f2 || echo '')"
+
+    # Skip post-update on first install (no previous version)
+    if [ -z "${previous_hash}" ] || [ "${previous_hash}" = "${current_hash}" ]; then
+        printf "[POST-UPDATE] First install or no version change detected, skipping post-update.\n\n"
+        rm -f "${PREVIOUS_VERSION_PATH}"
+        return 0
+    fi
+
+    printf "[POST-UPDATE] Running post-update orchestrator...\n"
+    python3 ${FRIX_CONFIG_PATH}/scripts/update_postprocess.py \
+        --repo ${FRIX_CONFIG_PATH} \
+        --user-config ${USER_CONFIG_PATH} \
+        --old-commit "${previous_hash}" \
+        --new-commit "${current_hash}" || true
+
+    # Clean up the previous version file
+    rm -f "${PREVIOUS_VERSION_PATH}"
+
+    printf "[POST-UPDATE] Post-update complete.\n\n"
+}
+
 
 BACKUP_DIR="${BACKUP_PATH}/$(date +'%Y_%m_%d-%H%M%S')"
 
@@ -341,9 +392,11 @@ printf "======================================\n\n"
 # Run steps
 preflight_checks
 check_download
+save_previous_version
 backup_config
 install_config
 restart_klipper
+run_post_update
 
 wget -O - https://raw.githubusercontent.com/Frix-x/klippain-shaketune/main/install.sh | bash
 
