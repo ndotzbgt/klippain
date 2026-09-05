@@ -30,8 +30,12 @@ BACKUP_PATH="${HOME}/klippain_config_backups"
 PREVIOUS_VERSION_PATH="${HOME}/klippain_config/.previous_commit"
 # Where the Klipper folder is located (ie. the internal Klipper firmware machinery)
 KLIPPER_PATH="${HOME}/klipper"
-# Branch from Frix-x/klippain repo to use during install (default: main)
-FRIX_BRANCH="main"
+# Fork selection: defaults to Frix-x/klippain (overridden by select_fork)
+FORK_NAME="Klippain"
+FORK_REPO_URL="https://github.com/Frix-x/klippain.git"
+FORK_BRANCH="main"
+FORK_RELEASES_URL="https://github.com/Frix-x/klippain/releases"
+FORK_SHAKETUNE_URL="https://raw.githubusercontent.com/Frix-x/klippain-shaketune/main/install.sh"
 
 
 set -eu
@@ -87,16 +91,80 @@ function preflight_checks {
 }
 
 
+# Step 1b: Detect or select which Klippain fork to install/update
+function select_fork {
+    local remote_url fork_choice
+
+    # If the repo already exists, try to auto-detect from the git remote
+    if [ -d "${FRIX_CONFIG_PATH}/.git" ]; then
+        remote_url="$(git -C "${FRIX_CONFIG_PATH}" remote get-url origin 2>/dev/null || echo '')"
+
+        if [[ "${remote_url}" == *"ndotzbgt/klippain"* ]]; then
+            FORK_NAME="BleedingPain"
+            FORK_REPO_URL="https://github.com/ndotzbgt/klippain.git"
+            FORK_BRANCH="bleedingpain"
+            FORK_RELEASES_URL="https://github.com/ndotzbgt/klippain/releases"
+            printf "[DETECT] Detected fork: ndotzbgt/klippain (bleedingpain branch)\n"
+        elif [[ "${remote_url}" == *"Frix-x/klippain"* ]]; then
+            FORK_NAME="Klippain"
+            FORK_REPO_URL="https://github.com/Frix-x/klippain.git"
+            FORK_BRANCH="main"
+            FORK_RELEASES_URL="https://github.com/Frix-x/klippain/releases"
+            printf "[DETECT] Detected fork: Frix-x/klippain (main branch)\n"
+        else
+            printf "[DETECT] Unknown remote: %s\n" "${remote_url}"
+            printf "[DETECT] Defaulting to Frix-x/klippain (main branch)\n"
+        fi
+
+        read < /dev/tty -rp "[DETECT] Is this correct? (Y/n) " fork_choice
+        if [[ -z "$fork_choice" ]]; then
+            fork_choice="y"
+        fi
+        fork_choice="${fork_choice,,}"
+
+        if [[ "$fork_choice" =~ ^(yes|y)$ ]]; then
+            printf "[DETECT] Using fork: %s (%s branch)\n\n" "${FORK_NAME}" "${FORK_BRANCH}"
+            return 0
+        fi
+        # If user said no, fall through to interactive menu
+    fi
+
+    # Interactive selection for first install or when user rejected auto-detect
+    printf "\nWhich Klippain variant are you installing?\n\n"
+    echo "  1) Klippain       (Frix-x/klippain)       - main branch"
+    echo "  2) BleedingPain   (ndotzbgt/klippain)     - bleedingpain branch"
+    echo ""
+
+    read < /dev/tty -rp "Select [1-2]: " fork_choice
+    case "${fork_choice}" in
+        2)
+            FORK_NAME="BleedingPain"
+            FORK_REPO_URL="https://github.com/ndotzbgt/klippain.git"
+            FORK_BRANCH="bleedingpain"
+            FORK_RELEASES_URL="https://github.com/ndotzbgt/klippain/releases"
+            ;;
+        *)
+            FORK_NAME="Klippain"
+            FORK_REPO_URL="https://github.com/Frix-x/klippain.git"
+            FORK_BRANCH="main"
+            FORK_RELEASES_URL="https://github.com/Frix-x/klippain/releases"
+            ;;
+    esac
+
+    printf "[SELECT] Using fork: %s (%s branch)\n\n" "${FORK_NAME}" "${FORK_BRANCH}"
+}
+
+
 # Step 2: Check if the git config folder exist (or download it)
 function check_download {
-    local frixtemppath frixreponame
+    local frixtemppath frixreponame frixbranchname
     frixtemppath="$(dirname ${FRIX_CONFIG_PATH})"
     frixreponame="$(basename ${FRIX_CONFIG_PATH})"
-    frixbranchname="${FRIX_BRANCH}"
+    frixbranchname="${FORK_BRANCH}"
 
     if [ ! -d "${FRIX_CONFIG_PATH}" ]; then
-        echo "[DOWNLOAD] Downloading Klippain repository..."
-        if git -C $frixtemppath clone -b $frixbranchname https://github.com/Frix-x/klippain.git $frixreponame; then
+        echo "[DOWNLOAD] Downloading ${FORK_NAME} repository..."
+        if git -C $frixtemppath clone -b $frixbranchname ${FORK_REPO_URL} $frixreponame; then
             printf "[DOWNLOAD] Download complete!\n\n"
         else
             echo "[ERROR] Download of Klippain git repository failed!"
@@ -391,6 +459,7 @@ printf "======================================\n\n"
 
 # Run steps
 preflight_checks
+select_fork
 check_download
 save_previous_version
 backup_config
@@ -398,7 +467,7 @@ install_config
 restart_klipper
 run_post_update
 
-wget -O - https://raw.githubusercontent.com/Frix-x/klippain-shaketune/main/install.sh | bash
+wget -O - "${FORK_SHAKETUNE_URL}" | bash || true
 
-echo "[POST-INSTALL] Everything is ok, Klippain installed and up to date!"
-echo "[POST-INSTALL] Be sure to check the breaking changes on the release page: https://github.com/Frix-x/klippain/releases"
+echo "[POST-INSTALL] Everything is ok, ${FORK_NAME} installed and up to date!"
+echo "[POST-INSTALL] Be sure to check the breaking changes on the release page: ${FORK_RELEASES_URL}"
