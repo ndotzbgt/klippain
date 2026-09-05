@@ -17,6 +17,7 @@ Here you can find a list of all the custom features availables in the macros or 
   - Automatic [input shaper workflow](./features/is_workflow.md) to calibrate it without using SSH
   - Custom designed [vibrations measurements and calibration workflow](./features/vibr_measurements.md) to be able to do an advanced calibration of the machine speed settings and optimize your global mechanical assembly
   - [Virtual-Z probe framework](./features/virtual_z_probes.md) for TAP, Beacon Contact, and Cartographer Survey Touch setup
+  - [Dockable probe automation](./features/dockable_probes.md) for automatic attach/dock lifecycle with optional keep-attached mode
   - More feature descriptions and info will be added later...
 
 
