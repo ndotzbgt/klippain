@@ -172,6 +172,7 @@ def main():
         if not os.path.exists(plugin_dest):
             shutil.copy(plugin, plugin_dest)
 
+
         cmd = [
             sys.executable, klippy,
             "-i", os.devnull,
