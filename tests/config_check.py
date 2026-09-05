@@ -173,6 +173,7 @@ def main():
             shutil.copy(plugin, plugin_dest)
 
 
+
         cmd = [
             sys.executable, klippy,
             "-i", os.devnull,
