@@ -155,6 +155,23 @@ function select_fork {
 }
 
 
+# Step 1c: Patch moonraker/base.conf to match the selected fork
+function patch_moonraker_config {
+    local moonraker_conf="${FRIX_CONFIG_PATH}/moonraker/base.conf"
+
+    if [ ! -f "${moonraker_conf}" ]; then
+        printf "[MOONRAKER] base.conf not found, skipping patch.\n\n"
+        return 0
+    fi
+
+    # Patch origin URL and primary_branch to match the selected fork
+    sed -i "s|^origin:.*|origin: ${FORK_REPO_URL}|" "${moonraker_conf}"
+    sed -i "s|^primary_branch:.*|primary_branch: ${FORK_BRANCH}|" "${moonraker_conf}"
+
+    printf "[MOONRAKER] Patched base.conf: origin=${FORK_REPO_URL}, branch=${FORK_BRANCH}\n\n"
+}
+
+
 # Step 2: Check if the git config folder exist (or download it)
 function check_download {
     local frixtemppath frixreponame frixbranchname
@@ -460,6 +477,7 @@ printf "======================================\n\n"
 # Run steps
 preflight_checks
 select_fork
+patch_moonraker_config
 check_download
 save_previous_version
 backup_config
