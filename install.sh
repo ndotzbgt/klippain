@@ -41,6 +41,11 @@ FORK_SHAKETUNE_URL="https://raw.githubusercontent.com/Frix-x/klippain-shaketune/
 set -eu
 export LC_ALL=C
 
+# Detect non-interactive mode (e.g. when called by Moonraker update manager)
+function is_non_interactive {
+    [ ! -t 0 ] && [ ! -e /dev/tty ]
+}
+
 # Step 0: Save the previous commit hash before moonraker updates the repo.
 #         This must be called BEFORE the git pull that moonraker performs.
 function save_previous_version {
@@ -74,6 +79,12 @@ function preflight_checks {
         echo "[PRE-CHECK] New installation of Klippain detected!"
         echo "[PRE-CHECK] This install script will WIPE AND REPLACE your current Klipper config with the full Klippain system (a backup will be kept)"
         echo "[PRE-CHECK] Be sure that the printer is idle before continuing!"
+
+        if is_non_interactive; then
+            echo "[PRE-CHECK] Non-interactive mode detected. First install requires a terminal."
+            echo "[PRE-CHECK] Run this script manually from an SSH session to proceed."
+            exit -1
+        fi
         
         read < /dev/tty -rp "[PRE-CHECK] Are you sure want to proceed and install Klippain? (y/N) " install_klippain_answer
         if [[ -z "$install_klippain_answer" ]]; then
@@ -99,34 +110,43 @@ function select_fork {
     if [ -d "${FRIX_CONFIG_PATH}/.git" ]; then
         remote_url="$(git -C "${FRIX_CONFIG_PATH}" remote get-url origin 2>/dev/null || echo '')"
 
+        local detected=false
         if [[ "${remote_url}" == *"ndotzbgt/klippain"* ]]; then
             FORK_NAME="BleedingPain"
             FORK_REPO_URL="https://github.com/ndotzbgt/klippain.git"
             FORK_BRANCH="bleedingpain"
             FORK_RELEASES_URL="https://github.com/ndotzbgt/klippain/releases"
             printf "[DETECT] Detected fork: ndotzbgt/klippain (bleedingpain branch)\n"
+            detected=true
         elif [[ "${remote_url}" == *"Frix-x/klippain"* ]]; then
             FORK_NAME="Klippain"
             FORK_REPO_URL="https://github.com/Frix-x/klippain.git"
             FORK_BRANCH="main"
             FORK_RELEASES_URL="https://github.com/Frix-x/klippain/releases"
             printf "[DETECT] Detected fork: Frix-x/klippain (main branch)\n"
+            detected=true
         else
             printf "[DETECT] Unknown remote: %s\n" "${remote_url}"
-            printf "[DETECT] Defaulting to Frix-x/klippain (main branch)\n"
         fi
 
-        read < /dev/tty -rp "[DETECT] Is this correct? (Y/n) " fork_choice
-        if [[ -z "$fork_choice" ]]; then
-            fork_choice="y"
-        fi
-        fork_choice="${fork_choice,,}"
+        if [ "${detected}" = true ]; then
+            if is_non_interactive; then
+                printf "[DETECT] Non-interactive mode, using detected fork: %s (%s branch)\n\n" "${FORK_NAME}" "${FORK_BRANCH}"
+                return 0
+            fi
 
-        if [[ "$fork_choice" =~ ^(yes|y)$ ]]; then
-            printf "[DETECT] Using fork: %s (%s branch)\n\n" "${FORK_NAME}" "${FORK_BRANCH}"
-            return 0
+            read < /dev/tty -rp "[DETECT] Is this correct? (Y/n) " fork_choice
+            if [[ -z "$fork_choice" ]]; then
+                fork_choice="y"
+            fi
+            fork_choice="${fork_choice,,}"
+
+            if [[ "$fork_choice" =~ ^(yes|y)$ ]]; then
+                printf "[DETECT] Using fork: %s (%s branch)\n\n" "${FORK_NAME}" "${FORK_BRANCH}"
+                return 0
+            fi
+            # If user said no, fall through to interactive menu
         fi
-        # If user said no, fall through to interactive menu
     fi
 
     # Interactive selection for first install or when user rejected auto-detect
@@ -298,6 +318,12 @@ function build_template_menu_entries {
 function install_mcu_templates {
     local install_template file_list display_list main_template install_toolhead_template toolhead_template install_mmu_template install_expander_template expander_template
     local display_name selected_file selected_name
+
+    if is_non_interactive; then
+        printf "[CONFIG] Non-interactive mode, skipping MCU template installation.\n"
+        printf "[CONFIG] You will need to manually populate your mcu.cfg file.\n\n"
+        return
+    fi
 
     read < /dev/tty -rp "[CONFIG] Would you like to select and install MCU wiring templates files? (Y/n) " install_template
     if [[ -z "$install_template" ]]; then
