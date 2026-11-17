@@ -36,6 +36,10 @@ FORK_REPO_URL="https://github.com/Frix-x/klippain.git"
 FORK_BRANCH="main"
 FORK_RELEASES_URL="https://github.com/Frix-x/klippain/releases"
 FORK_SHAKETUNE_URL="https://raw.githubusercontent.com/Frix-x/klippain-shaketune/main/install.sh"
+# The auto z calibration plugin lives in its own repository and is tracked
+# by the moonraker/z_calibration.conf update_manager entry, so it needs its
+# own fork URL (overridden by select_fork as well)
+FORK_ZCALIB_REPO_URL="https://github.com/protoloft/klipper_z_calibration.git"
 
 
 set -eu
@@ -116,6 +120,7 @@ function select_fork {
             FORK_REPO_URL="https://github.com/ndotzbgt/klippain.git"
             FORK_BRANCH="bleedingpain"
             FORK_RELEASES_URL="https://github.com/ndotzbgt/klippain/releases"
+            FORK_ZCALIB_REPO_URL="https://github.com/ndotzbgt/klipper_z_calibration.git"
             printf "[DETECT] Detected fork: ndotzbgt/klippain (bleedingpain branch)\n"
             detected=true
         elif [[ "${remote_url}" == *"Frix-x/klippain"* ]]; then
@@ -123,6 +128,7 @@ function select_fork {
             FORK_REPO_URL="https://github.com/Frix-x/klippain.git"
             FORK_BRANCH="main"
             FORK_RELEASES_URL="https://github.com/Frix-x/klippain/releases"
+            FORK_ZCALIB_REPO_URL="https://github.com/protoloft/klipper_z_calibration.git"
             printf "[DETECT] Detected fork: Frix-x/klippain (main branch)\n"
             detected=true
         else
@@ -162,12 +168,14 @@ function select_fork {
             FORK_REPO_URL="https://github.com/ndotzbgt/klippain.git"
             FORK_BRANCH="bleedingpain"
             FORK_RELEASES_URL="https://github.com/ndotzbgt/klippain/releases"
+            FORK_ZCALIB_REPO_URL="https://github.com/ndotzbgt/klipper_z_calibration.git"
             ;;
         *)
             FORK_NAME="Klippain"
             FORK_REPO_URL="https://github.com/Frix-x/klippain.git"
             FORK_BRANCH="main"
             FORK_RELEASES_URL="https://github.com/Frix-x/klippain/releases"
+            FORK_ZCALIB_REPO_URL="https://github.com/protoloft/klipper_z_calibration.git"
             ;;
     esac
 
@@ -175,9 +183,10 @@ function select_fork {
 }
 
 
-# Step 1c: Patch moonraker/base.conf to match the selected fork
+# Step 1c: Patch the moonraker configs to match the selected fork
 function patch_moonraker_config {
     local moonraker_conf="${FRIX_CONFIG_PATH}/moonraker/base.conf"
+    local z_calibration_conf="${FRIX_CONFIG_PATH}/moonraker/z_calibration.conf"
 
     if [ ! -f "${moonraker_conf}" ]; then
         printf "[MOONRAKER] base.conf not found, skipping patch.\n\n"
@@ -189,6 +198,14 @@ function patch_moonraker_config {
     sed -i "s|^primary_branch:.*|primary_branch: ${FORK_BRANCH}|" "${moonraker_conf}"
 
     printf "[MOONRAKER] Patched base.conf: origin=${FORK_REPO_URL}, branch=${FORK_BRANCH}\n\n"
+
+    # The auto z calibration plugin is a separate repository: point its
+    # update_manager entry at the fork matching this Klippain fork so the
+    # updater does not track the upstream repository instead.
+    if [ -f "${z_calibration_conf}" ]; then
+        sed -i "s|^origin:.*|origin: ${FORK_ZCALIB_REPO_URL}|" "${z_calibration_conf}"
+        printf "[MOONRAKER] Patched z_calibration.conf: origin=%s\n\n" "${FORK_ZCALIB_REPO_URL}"
+    fi
 }
 
 
@@ -503,8 +520,10 @@ printf "======================================\n\n"
 # Run steps
 preflight_checks
 select_fork
-patch_moonraker_config
+# Download first so the moonraker patch below also runs on a first
+# install, where the repository does not exist before this script clones it
 check_download
+patch_moonraker_config
 save_previous_version
 backup_config
 install_config
