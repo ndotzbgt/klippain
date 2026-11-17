@@ -40,6 +40,7 @@ config_primary_branch() {
 }
 
 FRIX_CONFIG_PATH="${tmpdir}"
+USER_CONFIG_PATH="${tmpdir}"
 
 # The BleedingPain selection must track the matching plugin fork
 FORK_REPO_URL="https://github.com/ndotzbgt/klippain.git"
