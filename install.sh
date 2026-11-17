@@ -186,8 +186,7 @@ function select_fork {
 # Step 1c: Patch the moonraker configs to match the selected fork
 function patch_moonraker_config {
     local moonraker_conf="${USER_CONFIG_PATH}/moonraker/base.conf"
-    local z_calibration_conf_user="${USER_CONFIG_PATH}/moonraker/z_calibration.conf"
-    local z_calibration_conf_repo="${FRIX_CONFIG_PATH}/moonraker/z_calibration.conf"
+    local z_calibration_conf="${USER_CONFIG_PATH}/moonraker/z_calibration.conf"
 
     if [ ! -f "${moonraker_conf}" ]; then
         printf "[MOONRAKER] base.conf not found, skipping patch.\n\n"
@@ -203,10 +202,9 @@ function patch_moonraker_config {
     # The auto z calibration plugin is a separate repository: point its
     # update_manager entry at the fork matching this Klippain fork so the
     # updater does not track the upstream repository instead.
-    # Generate z_calibration.conf (not tracked in git) for both repo and user config
-    for z_conf in "${z_calibration_conf_repo}" "${z_calibration_conf_user}"; do
-        mkdir -p "$(dirname "${z_conf}")"
-        cat > "${z_conf}" <<EOF
+    # Generate z_calibration.conf ONLY in user config (not in repo) to avoid dirty git status.
+    mkdir -p "$(dirname "${z_calibration_conf}")"
+    cat > "${z_calibration_conf}" <<EOF
 [update_manager client z_calibration]
 type: git_repo
 path: ~/klipper_z_calibration
@@ -214,8 +212,7 @@ origin: ${FORK_ZCALIB_REPO_URL}
 install_script: install.sh
 managed_services: klipper
 EOF
-        printf "[MOONRAKER] Generated %s: origin=%s\n\n" "${z_conf}" "${FORK_ZCALIB_REPO_URL}"
-    done
+    printf "[MOONRAKER] Generated %s: origin=%s\n\n" "${z_calibration_conf}" "${FORK_ZCALIB_REPO_URL}"
 }
 
 
