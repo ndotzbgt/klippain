@@ -186,7 +186,8 @@ function select_fork {
 # Step 1c: Patch the moonraker configs to match the selected fork
 function patch_moonraker_config {
     local moonraker_conf="${USER_CONFIG_PATH}/moonraker/base.conf"
-    local z_calibration_conf="${USER_CONFIG_PATH}/moonraker/z_calibration.conf"
+    local z_calibration_conf_user="${USER_CONFIG_PATH}/moonraker/z_calibration.conf"
+    local z_calibration_conf_repo="${FRIX_CONFIG_PATH}/moonraker/z_calibration.conf"
 
     if [ ! -f "${moonraker_conf}" ]; then
         printf "[MOONRAKER] base.conf not found, skipping patch.\n\n"
@@ -202,10 +203,13 @@ function patch_moonraker_config {
     # The auto z calibration plugin is a separate repository: point its
     # update_manager entry at the fork matching this Klippain fork so the
     # updater does not track the upstream repository instead.
-    if [ -f "${z_calibration_conf}" ]; then
-        sed -i "s|^origin:.*|origin: ${FORK_ZCALIB_REPO_URL}|" "${z_calibration_conf}"
-        printf "[MOONRAKER] Patched z_calibration.conf: origin=%s\n\n" "${FORK_ZCALIB_REPO_URL}"
-    fi
+    # Patch BOTH the repo (what Moonraker reads) and user config copy
+    for z_conf in "${z_calibration_conf_repo}" "${z_calibration_conf_user}"; do
+        if [ -f "${z_conf}" ]; then
+            sed -i "s|^origin:.*|origin: ${FORK_ZCALIB_REPO_URL}|" "${z_conf}"
+            printf "[MOONRAKER] Patched %s: origin=%s\n\n" "${z_conf}" "${FORK_ZCALIB_REPO_URL}"
+        fi
+    done
 }
 
 
