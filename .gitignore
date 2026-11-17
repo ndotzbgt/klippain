@@ -10,6 +10,7 @@
 /.VERSION
 /scripts/K-ShakeTune
 /klipper
+/moonraker/z_calibration.conf
 
 
 # -------------------------------------------------------------------
