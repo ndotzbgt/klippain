@@ -8,7 +8,12 @@ symlinked to the repository. A reference machine is enabled by uncommenting
 the relevant lines of user_templates/printer.cfg.
 
 Usage:
-    python3 tests/config_check.py [standard|tachometer] [path/to/klipper]
+    python3 tests/config_check.py [variant] [path/to/klipper]
+
+The z_calibration variant additionally needs a checkout of the
+klipper_z_calibration plugin. It is looked up in the Z_CALIBRATION_PLUGIN
+environment variable first, then in a "klipper_z_calibration" directory
+next to this repository.
 """
 
 import os
@@ -20,10 +25,39 @@ import tempfile
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# Each variant enables extra includes on top of the reference machine,
+# optionally disables reference includes it replaces, and can require an
+# extra Klipper plugin to be staged before klippy runs.
 VARIANTS = {
-    "standard": "config/hardware/fans/aux_fan.cfg",
-    "tachometer": "config/hardware/fans/aux_fan_tachometer.cfg",
-    "axis_twist": "config/software/axis_twist_compensation/axis_twist_compensation_350mm.cfg",
+    "standard": {
+        "enable": ["config/hardware/fans/aux_fan.cfg"],
+    },
+    "tachometer": {
+        "enable": ["config/hardware/fans/aux_fan_tachometer.cfg"],
+    },
+    "axis_twist": {
+        "enable": ["config/software/axis_twist_compensation/"
+                   "axis_twist_compensation_350mm.cfg"],
+    },
+    # The auto z calibration combination: a dockable probe with a physical
+    # Z endstop on a Z tilt machine, as selected by uncommenting
+    # [include config/software/z_calibration.cfg] in printer.cfg. It
+    # replaces the inductive virtual Z endstop probe (the plugin needs a
+    # physical endstop) and the quad gantry level (Z tilt matches the
+    # Trident-style machines this plugin is used on, and is the bed
+    # movement that must not stale the Z homing reference).
+    "z_calibration": {
+        "enable": [
+            "config/hardware/probes/dockable.cfg",
+            "config/software/tilting/z_tilt_350mm.cfg",
+            "config/software/z_calibration.cfg",
+        ],
+        "disable": [
+            "config/hardware/probes/inductive_virtual.cfg",
+            "config/software/tilting/qgl_350mm.cfg",
+        ],
+        "plugin": "z_calibration",
+    },
 }
 
 # Reference machine: a Voron-style CoreXY 350mm with an inductive virtual Z
@@ -96,7 +130,9 @@ pid_Kd: 95.6
 def build_printer_cfg(variant):
     """Uncomment the selected [include] lines of user_templates/printer.cfg."""
     template_path = os.path.join(REPO_ROOT, "user_templates", "printer.cfg")
-    selected = set(ENABLED_INCLUDES) | {VARIANTS[variant]}
+    spec = VARIANTS[variant]
+    selected = (set(ENABLED_INCLUDES) - set(spec.get("disable", ()))
+                | set(spec.get("enable", ())))
     out = []
     with open(template_path, encoding="utf-8") as handle:
         for line in handle:
@@ -110,6 +146,26 @@ def build_printer_cfg(variant):
                     continue
             out.append(line)
     return "".join(out)
+
+
+def find_z_calibration_plugin():
+    """Return the path of z_calibration.py for the z_calibration variant."""
+    candidates = [os.environ.get("Z_CALIBRATION_PLUGIN"),
+                  os.path.join(REPO_ROOT, "klipper_z_calibration")]
+    for candidate in candidates:
+        if not candidate:
+            continue
+        path = candidate
+        if os.path.isdir(path):
+            path = os.path.join(path, "z_calibration.py")
+        if os.path.isfile(path):
+            return os.path.abspath(path)
+    raise SystemExit(
+        "z_calibration.py not found - clone the plugin next to this"
+        " repository or point Z_CALIBRATION_PLUGIN at its checkout:\n"
+        "  git clone --depth 1"
+        " https://github.com/protoloft/klipper_z_calibration.git"
+        " klipper_z_calibration")
 
 
 def main():
@@ -171,6 +227,17 @@ def main():
                                    "axis_twist_compensation_dockable.py")
         if not os.path.exists(plugin_dest):
             shutil.copy(plugin, plugin_dest)
+
+        # Stage the z_calibration plugin used by the [z_calibration]
+        # section. It is symlinked the way the plugin's own install.sh
+        # links it into Klipper, so a checkout that splits the plugin
+        # over several modules resolves them through the real path of
+        # this file instead of through klippy/extras.
+        if VARIANTS[variant].get("plugin") == "z_calibration":
+            plugin_dest = os.path.join(klipper, "klippy", "extras",
+                                       "z_calibration.py")
+            if not os.path.lexists(plugin_dest):
+                os.symlink(find_z_calibration_plugin(), plugin_dest)
 
 
 
