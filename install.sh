@@ -185,8 +185,8 @@ function select_fork {
 
 # Step 1c: Patch the moonraker configs to match the selected fork
 function patch_moonraker_config {
-    local moonraker_conf="${FRIX_CONFIG_PATH}/moonraker/base.conf"
-    local z_calibration_conf="${FRIX_CONFIG_PATH}/moonraker/z_calibration.conf"
+    local moonraker_conf="${USER_CONFIG_PATH}/moonraker/base.conf"
+    local z_calibration_conf="${USER_CONFIG_PATH}/moonraker/z_calibration.conf"
 
     if [ ! -f "${moonraker_conf}" ]; then
         printf "[MOONRAKER] base.conf not found, skipping patch.\n\n"
@@ -269,9 +269,14 @@ function install_config {
     mkdir -p ${USER_CONFIG_PATH}
 
     # Symlink Frix-x config folders (read-only git repository) to the user's config directory
-    for dir in config macros scripts moonraker; do
+    for dir in config macros scripts; do
         ln -fsn ${FRIX_CONFIG_PATH}/$dir ${USER_CONFIG_PATH}/$dir
     done
+
+    # Copy moonraker directory (not symlink) so we can patch fork-specific configs
+    # without dirtying the upstream git repository
+    rm -rf "${USER_CONFIG_PATH}/moonraker"
+    cp -a "${FRIX_CONFIG_PATH}/moonraker" "${USER_CONFIG_PATH}/moonraker"
 
     # Detect if it's a first install by looking at the .VERSION file to ask for the config
     # template install. If the config is already installed, nothing need to be done here
@@ -287,10 +292,6 @@ function install_config {
         done
         install_mcu_templates
     fi
-
-    # CHMOD the scripts to be sure they are all executables (Git should keep the modes on files but it's to be sure)
-    chmod +x ${FRIX_CONFIG_PATH}/install.sh
-    chmod +x ${FRIX_CONFIG_PATH}/uninstall.sh
 
     # Symlink the gcode_shell_command.py file in the correct Klipper folder (erased to always get the last version)
     ln -fsn ${FRIX_CONFIG_PATH}/scripts/gcode_shell_command.py ${KLIPPER_PATH}/klippy/extras
@@ -523,10 +524,10 @@ select_fork
 # Download first so the moonraker patch below also runs on a first
 # install, where the repository does not exist before this script clones it
 check_download
-patch_moonraker_config
 save_previous_version
 backup_config
 install_config
+patch_moonraker_config
 restart_klipper
 run_post_update
 
